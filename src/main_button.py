@@ -7,6 +7,7 @@ from neopixel import NeoPixel
 from time import sleep
 import json
 import urequests
+import gc
 
 ######################################################################################
 # LED SETUP
@@ -50,16 +51,16 @@ def read_config():
 # WIFI SETUP
 
 # Connect to WIFI
-def do_connect(wlan_sta) -> network.WLAN:
-    global server_socket
-
+def do_connect() -> network.WLAN:
     ssid = read_config().get("ssid")
     password = read_config().get("password")
 
     set_leds(color = (100, 0, 0))
     print('Trying to connect to %s...' % ssid)
 
+    wlan_sta = network.WLAN(network.STA_IF)
     wlan_sta.active(True)
+    wlan_sta.config(pm = 0xa11140)
     sleep(3)
 
     wlan_sta.connect(ssid, password)
@@ -76,12 +77,12 @@ def do_connect(wlan_sta) -> network.WLAN:
         if test == 5:
             raise ConnectionError("Sorry, could not connect to %s", ssid) 
 
+    gc.collect()
+
     return wlan_sta
 
 # Actually connect to WIFI see config.json
-wlan_sta = network.WLAN(network.STA_IF)
-wlan_sta.active(True)
-wlan_sta = do_connect(wlan_sta)
+wlan_sta = do_connect()
 
 ######################################################################################
 
@@ -104,21 +105,21 @@ def read_button_state():
 while True:
     if not wlan_sta.isconnected():
         # Reconnect to WIFI if not connected
-        wlan_sta = network.WLAN(network.STA_IF)
-        wlan_sta.active(True)
-        wlan_sta = do_connect(wlan_sta)
+        wlan_sta = do_connect()
     else:
         if read_button_state() == True:
             # If the button is pressed, set LED color and send request
-            set_leds((0,100,0))
+            set_leds((0,0,150))
             # Send HTTP request
             response = urequests.get("https://geek-jokes.sameerkumar.website/api?format=json")
             json_response = json.loads(response.text)
             # Show the joke retrieved from the API in Pico Repl (VS Code)
             print(json_response.get('joke'))
             response.close()
+            gc.collect()
+
             # Set LED to full on green, to signal success.
-            set_leds((0,255,0))
+            set_leds((0,159,0))
             sleep(1)
         else:
             # Reset LEDs to default state
